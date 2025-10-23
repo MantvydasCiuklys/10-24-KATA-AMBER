@@ -1,6 +1,6 @@
 # Task A: First Non-Repeating Character
 
-Given a non-empty string s, return the index of the first character that does not repeat. If no such character exists, return -1. The current implementation is correct but slow—make it 𝑂(n) in time while keeping space reasonable.
+Given a non-empty string s, return the index of the first character that does not repeat. If no such character exists, return -1.
 
 ## Assumptions
 
