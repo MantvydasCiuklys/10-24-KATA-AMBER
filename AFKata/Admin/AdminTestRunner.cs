@@ -832,14 +832,13 @@ console.log(JSON.stringify({{ results }}));
         foreach (var (contestant, aggregate) in aggregates.OrderBy(kvp => kvp.Key, StringComparer.OrdinalIgnoreCase))
         {
             var snapshot = aggregate.GetBestSnapshot();
-            var taskRatio = snapshot.TotalTasks == 0 ? 0d : snapshot.TaskRatio;
-            var testRatio = snapshot.TotalTests == 0 ? 0d : snapshot.TestRatio;
-            var status = snapshot.TotalTasks > 0 && snapshot.PassedTasks == snapshot.TotalTasks ? "PASS" : "FAIL";
+            var testRatio = snapshot.TestRatio;
+            var status = testRatio >= 0.999 ? "PASS" : "FAIL";
 
             Console.Write($"- {contestant}: {status} [");
-            WriteColored($"{taskRatio * 100:0.#}% of tasks", GetColor(taskRatio));
-            Console.Write("] ");
-            WriteColored($"{snapshot.PassedTests}/{snapshot.TotalTests} tests", GetColor(testRatio));
+            WriteColored($"{testRatio * 100:0.#}%", GetColor(testRatio));
+            Console.Write("] - ");
+            WriteColored($"{snapshot.PassedTests}/{snapshot.TotalTests} tests passed.", GetColor(testRatio));
             Console.WriteLine();
         }
     }
