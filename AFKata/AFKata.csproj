@@ -8,7 +8,7 @@
     <Nullable>enable</Nullable>
     <ContestantName>Jonas</ContestantName>
     <ContestantRunTime>js</ContestantRunTime>
-    <ContestantTask>TaskC</ContestantTask>
+    <ContestantTask>TaskD</ContestantTask>
   </PropertyGroup>
 
   <ItemGroup>
