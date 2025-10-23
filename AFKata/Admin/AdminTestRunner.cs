@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 
@@ -15,6 +16,9 @@ public static class AdminTestRunner
     private static readonly string ProjectRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", ".."));
     private static readonly IReadOnlyList<string> AllTasks = new[] { "TaskA", "TaskB", "TaskC", "TaskD", "TaskE" };
     private static readonly JsonSerializerOptions JsonOptions = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+    private static readonly List<CompressionReport> CompressionReports = new();
+    private static readonly List<SortBenchmarkReport> SortBenchmarkReports = new();
+    private static readonly int[] SortBenchmarkSizes = { 100, 500, 2000, 10000, 50000 };
 
     public static void Run(Assembly assembly, IReadOnlyCollection<string>? requestedTasks = null)
     {
@@ -60,6 +64,9 @@ public static class AdminTestRunner
 
         var aggregates = new Dictionary<string, ContestantAggregate>(StringComparer.OrdinalIgnoreCase);
 
+        CompressionReports.Clear();
+        SortBenchmarkReports.Clear();
+
         foreach (var task in tasks)
         {
             var summaries = RunTask(assembly, task);
@@ -74,6 +81,82 @@ public static class AdminTestRunner
                 var aggregate = GetOrCreateAggregate(aggregates, summary.Contestant);
                 aggregate.Record(summary.Language, summary.TaskName, allPass, summary.Results.Count(r => r.Kind == ResultKind.Pass), summary.Results.Length);
             }
+        }
+
+        if (CompressionReports.Count > 0)
+        {
+            Console.WriteLine();
+            Console.WriteLine("[admin] TaskC Compression Report");
+            Console.WriteLine("  Contestant      Lang   Shrink%   Lossless");
+
+            foreach (var report in CompressionReports
+                .OrderByDescending(r => double.IsNaN(r.CompressionPercent) ? double.NegativeInfinity : r.CompressionPercent)
+                .ThenBy(r => r.Contestant, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(r => r.Language, StringComparer.OrdinalIgnoreCase))
+            {
+                var percent = double.IsNaN(report.CompressionPercent) ? 0d : report.CompressionPercent;
+                var percentText = $"{percent:0.00}%".PadLeft(10);
+                Console.Write($"  {report.Contestant,-14}{report.Language,-6}{percentText}   ");
+                WriteColored(report.Lossless ? "Yes" : "No", report.Lossless ? ConsoleColor.Green : ConsoleColor.Red);
+                Console.WriteLine();
+            }
+        }
+
+        if (SortBenchmarkReports.Count > 0)
+        {
+            Console.WriteLine();
+            Console.WriteLine("[admin] TaskE Sorting Benchmarks (ms)");
+            Console.Write("  Contestant      Lang");
+            foreach (var size in SortBenchmarkSizes)
+            {
+                Console.Write($"{($"n={size}").PadLeft(12)}");
+            }
+            Console.WriteLine();
+
+            var bestTimes = new Dictionary<int, double>();
+            foreach (var size in SortBenchmarkSizes)
+            {
+                var candidates = SortBenchmarkReports
+                    .Where(r => r.IsSorted && r.TimesMs.TryGetValue(size, out _))
+                    .Select(r => r.TimesMs[size])
+                    .ToList();
+                if (candidates.Count > 0)
+                {
+                    bestTimes[size] = candidates.Min();
+                }
+            }
+
+            foreach (var report in SortBenchmarkReports
+                .OrderBy(r => r.Contestant, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(r => r.Language, StringComparer.OrdinalIgnoreCase))
+            {
+                Console.Write($"  {report.Contestant,-14}{report.Language,-6}");
+                foreach (var size in SortBenchmarkSizes)
+                {
+                    if (report.TimesMs.TryGetValue(size, out var time))
+                    {
+                        var formatted = time.ToString("0.###").PadLeft(12);
+                        if (report.IsSorted && bestTimes.TryGetValue(size, out var best) && Math.Abs(time - best) <= Math.Max(1e-6, best * 1e-4))
+                        {
+                            WriteColored(formatted, ConsoleColor.Green);
+                        }
+                        else
+                        {
+                            Console.Write(formatted);
+                        }
+                    }
+                    else
+                    {
+                        Console.Write("-".PadLeft(12));
+                    }
+                }
+                Console.WriteLine();
+            }
+        }
+
+        if (CompressionReports.Count > 0 || SortBenchmarkReports.Count > 0)
+        {
+            Console.WriteLine();
         }
 
         PrintSummary(aggregates);
@@ -93,15 +176,20 @@ public static class AdminTestRunner
         const string taskName = "TaskA";
         var testCases = new (string input, int expected)[]
         {
-            ("abcabc", -1),
-            ("aaab", 3),
-            ("swiss", 1),
-            ("z", 0),
             ("leetcode", 0),
+            ("loveleetcode", 2),
+            ("aabbccddeeffg", 12),
+            ("z", 0),
+            ("aabbcc", -1),
+            ("Aa", 0),
+            ("aabccdbe", 5),
+            ("abcabcd", 6),
+            ("xxyz", 2),
+            ("bbaa", -1),
         };
 
         var summaries = new List<TaskSummary>();
-        summaries.AddRange(RunPerContestantCSharp(assembly, taskName, solverType =>
+        summaries.AddRange(RunPerContestantCSharp(assembly, taskName, (contestant, solverType) =>
         {
             var method = solverType.GetMethod("FirstUniqChar", BindingFlags.Public | BindingFlags.Static);
             if (method is null)
@@ -152,10 +240,16 @@ public static class AdminTestRunner
             (new[] { 5, 0, 5 }, 5, 6),
             (new[] { -1, 2, 9 }, 2, 2),
             (new[] { 7, 4, -5, -3, 1 }, 5, 4),
+            (new[] { 1, 2, 3 }, 3, 3),
+            (new[] { 5, 5, 5 }, 5, 6),
+            (new[] { 1, -1, 1, -1 }, 2, 4),
+            (new[] { 3, -1, 4, 2, -2 }, 3, 7),
+            (new[] { 0, 5, 0, 5 }, 5, 10),
+            (new[] { 10, -10, 10, -10 }, 10, 10),
         };
 
         var summaries = new List<TaskSummary>();
-        summaries.AddRange(RunPerContestantCSharp(assembly, taskName, solverType =>
+        summaries.AddRange(RunPerContestantCSharp(assembly, taskName, (contestant, solverType) =>
         {
             var method = solverType.GetMethod("CountDivisibleSubarrays", BindingFlags.Public | BindingFlags.Static);
             if (method is null)
@@ -207,9 +301,11 @@ public static class AdminTestRunner
             "AAAAABBBBCCCCDDDD",
             "The quick brown fox jumps over the lazy dog",
         };
+        var primarySample = testCases[0];
+        var primaryLength = primarySample.Length;
 
         var summaries = new List<TaskSummary>();
-        summaries.AddRange(RunPerContestantCSharp(assembly, taskName, solverType =>
+        summaries.AddRange(RunPerContestantCSharp(assembly, taskName, (contestant, solverType) =>
         {
             var compress = solverType.GetMethod("Compress", BindingFlags.Public | BindingFlags.Static);
             var decompress = solverType.GetMethod("Decompress", BindingFlags.Public | BindingFlags.Static);
@@ -229,31 +325,135 @@ public static class AdminTestRunner
                 return new[] { Result.Missing("Decompress") };
             }
 
-            return testCases.Select(sample =>
+            var lossless = true;
+            var compressionPercent = double.NaN;
+            var results = new List<Result>();
+
+            foreach (var sample in testCases)
             {
                 try
                 {
                     var compressed = compress.Invoke(null, new object?[] { sample }) as string;
                     var roundtrip = decompress.Invoke(null, new object?[] { compressed }) as string;
 
-                    if (compressed is null)
+                    if (sample == primarySample && compressed is not null && primaryLength > 0)
                     {
-                        return Result.Fail(sample, "<null>", "non-null compressed string");
+                        compressionPercent = 100d * (1d - (double)compressed.Length / primaryLength);
                     }
 
-                    var matches = string.Equals(roundtrip, sample, StringComparison.Ordinal);
-                    return matches
-                        ? Result.Pass(sample, $"len={compressed.Length}")
-                        : Result.Fail(sample, roundtrip ?? "<null>", sample);
+                    if (compressed is null)
+                    {
+                        lossless = false;
+                        results.Add(Result.Fail(sample, "<null>", "non-null compressed string"));
+                        continue;
+                    }
+
+                    if (string.Equals(roundtrip, sample, StringComparison.Ordinal))
+                    {
+                        results.Add(Result.Pass(sample, $"len={compressed.Length}"));
+                    }
+                    else
+                    {
+                        lossless = false;
+                        results.Add(Result.Fail(sample, roundtrip ?? "<null>", sample));
+                    }
                 }
                 catch (Exception ex)
                 {
-                    return Result.Error(sample, ex);
+                    lossless = false;
+                    results.Add(Result.Error(sample, ex));
                 }
-            }).ToArray();
+            }
+
+            CompressionReports.Add(new CompressionReport(contestant, "C#", compressionPercent, lossless));
+
+            return results.ToArray();
         }));
 
-        summaries.AddRange(RunPerContestantJavaScript(taskName, RunTaskCJavaScript));
+        var testsJson = JsonSerializer.Serialize(testCases, JsonOptions);
+        summaries.AddRange(RunPerContestantJavaScript(taskName, (contestant, folder) =>
+        {
+            var modulePath = Path.Combine(folder, "task.js");
+            if (!File.Exists(modulePath))
+            {
+                return null;
+            }
+
+            var scriptBuilder = new StringBuilder();
+            scriptBuilder.AppendLine($"const modulePath = {JsonSerializer.Serialize(modulePath, JsonOptions)};");
+            scriptBuilder.AppendLine($"const tests = {testsJson};");
+            scriptBuilder.AppendLine("const primarySample = tests[0];");
+            scriptBuilder.AppendLine("let mod;");
+            scriptBuilder.AppendLine("try {");
+            scriptBuilder.AppendLine("    mod = require(modulePath);");
+            scriptBuilder.AppendLine("} catch (error) {");
+            scriptBuilder.AppendLine("    console.log(JSON.stringify({ error: 'require', message: error.message }));");
+            scriptBuilder.AppendLine("    process.exit(0);");
+            scriptBuilder.AppendLine("}");
+            scriptBuilder.AppendLine("const compress = mod.compress;");
+            scriptBuilder.AppendLine("const decompress = mod.decompress;");
+            scriptBuilder.AppendLine("if (typeof compress !== 'function' || typeof decompress !== 'function') {");
+            scriptBuilder.AppendLine("    console.log(JSON.stringify({ error: 'missing', message: 'compress/decompress not exported' }));");
+            scriptBuilder.AppendLine("    process.exit(0);");
+            scriptBuilder.AppendLine("}");
+            scriptBuilder.AppendLine("let lossless = true;");
+            scriptBuilder.AppendLine("let compression = null;");
+            scriptBuilder.AppendLine("const results = tests.map((sample) => {");
+            scriptBuilder.AppendLine("    try {");
+            scriptBuilder.AppendLine("        const encoded = compress(sample);");
+            scriptBuilder.AppendLine("        const decoded = decompress(encoded);");
+            scriptBuilder.AppendLine("        if (sample === primarySample && typeof encoded === 'string') {");
+            scriptBuilder.AppendLine("            compression = { original: sample.length, compressed: encoded.length };");
+            scriptBuilder.AppendLine("        }");
+            scriptBuilder.AppendLine("        if (encoded == null) {");
+            scriptBuilder.AppendLine("            lossless = false;");
+            scriptBuilder.AppendLine("            return { kind: 'fail', input: sample, actual: '<null>', expected: 'non-null compressed string' };");
+            scriptBuilder.AppendLine("        }");
+            scriptBuilder.AppendLine("        if (decoded === sample) {");
+            scriptBuilder.AppendLine("            return { kind: 'pass', input: sample, message: 'len=' + encoded.length };");
+            scriptBuilder.AppendLine("        }");
+            scriptBuilder.AppendLine("        lossless = false;");
+            scriptBuilder.AppendLine("        return { kind: 'fail', input: sample, actual: decoded ?? '<null>', expected: sample };");
+            scriptBuilder.AppendLine("    } catch (error) {");
+            scriptBuilder.AppendLine("        lossless = false;");
+            scriptBuilder.AppendLine("        return { kind: 'error', input: sample, message: error.message };");
+            scriptBuilder.AppendLine("    }");
+            scriptBuilder.AppendLine("});");
+            scriptBuilder.AppendLine("console.log(JSON.stringify({ results, compression, lossless }));");
+
+            var script = scriptBuilder.ToString();
+
+            var compressionPercent = double.NaN;
+            var jsLossless = true;
+
+            var results = RunJavaScriptHarness(folder, script, root =>
+            {
+                if (root.TryGetProperty("compression", out var compressionElement) &&
+                    compressionElement.ValueKind == JsonValueKind.Object &&
+                    compressionElement.TryGetProperty("original", out var originalElement) &&
+                    compressionElement.TryGetProperty("compressed", out var compressedElement) &&
+                    originalElement.ValueKind == JsonValueKind.Number &&
+                    compressedElement.ValueKind == JsonValueKind.Number &&
+                    originalElement.GetDouble() > 0)
+                {
+                    compressionPercent = 100d * (1d - compressedElement.GetDouble() / originalElement.GetDouble());
+                }
+
+                if (root.TryGetProperty("lossless", out var losslessElement))
+                {
+                    if (losslessElement.ValueKind == JsonValueKind.True || losslessElement.ValueKind == JsonValueKind.False)
+                    {
+                        jsLossless = losslessElement.GetBoolean();
+                    }
+                }
+            });
+
+            jsLossless &= results.All(r => r.Kind == ResultKind.Pass);
+            CompressionReports.Add(new CompressionReport(contestant, "JS", compressionPercent, jsLossless));
+
+            return results;
+        }));
+
         return summaries;
     }
 
@@ -267,7 +467,7 @@ public static class AdminTestRunner
         };
 
         var summaries = new List<TaskSummary>();
-        summaries.AddRange(RunPerContestantCSharp(assembly, taskName, solverType =>
+        summaries.AddRange(RunPerContestantCSharp(assembly, taskName, (contestant, solverType) =>
         {
             var method = solverType.GetMethod("Cipher", BindingFlags.Public | BindingFlags.Static);
             if (method is null)
@@ -323,52 +523,158 @@ public static class AdminTestRunner
             Enumerable.Range(-20, 41).Reverse().ToArray(),
         };
 
-        var summaries = new List<TaskSummary>();
-        summaries.AddRange(RunPerContestantCSharp(assembly, taskName, solverType =>
+        var benchmarkData = new Dictionary<int, int[]>(SortBenchmarkSizes.Length);
+        var random = new Random(42);
+        foreach (var size in SortBenchmarkSizes)
         {
-            var method = solverType.GetMethod("CustomSort", BindingFlags.Public | BindingFlags.Static);
-            if (method is null)
+            var data = new int[size];
+            for (var i = 0; i < size; i++)
             {
-                return new[] { Result.Missing("CustomSort") };
+                data[i] = random.Next(-1_000_000, 1_000_000);
             }
 
-            return testCases.Select(sample =>
+            benchmarkData[size] = data;
+        }
+
+        var benchmarksJson = JsonSerializer.Serialize(benchmarkData, JsonOptions);
+
+        var summaries = new List<TaskSummary>();
+
+        foreach (var contestant in GetContestants(taskName))
+        {
+            var solverType = assembly.GetType($"Contestants.{contestant}.{taskName}.Solver", throwOnError: false, ignoreCase: true)
+                ?? assembly.GetType($"Contestants.{contestant}.Solver", throwOnError: false, ignoreCase: true);
+
+            if (solverType is null)
             {
-                try
+                summaries.Add(new TaskSummary(taskName, contestant, "C#", new[] { Result.Missing("Solver") }));
+            }
+            else
+            {
+                var method = solverType.GetMethod("CustomSort", BindingFlags.Public | BindingFlags.Static);
+                if (method is null)
                 {
-                    var copy = sample.ToArray();
-                    var raw = method.Invoke(null, new object?[] { copy });
-                    if (raw is not int[] result)
+                    summaries.Add(new TaskSummary(taskName, contestant, "C#", new[] { Result.Missing("CustomSort") }));
+                }
+                else
+                {
+                    var results = new List<Result>();
+                    foreach (var sample in testCases)
                     {
-                        return Result.Fail(FormatArray(sample), raw?.GetType().Name ?? "<null>", "int[]");
+                        try
+                        {
+                            var clone = sample.ToArray();
+                            var raw = method.Invoke(null, new object?[] { clone });
+                            if (raw is not int[] result)
+                            {
+                                results.Add(Result.Fail(FormatArray(sample), raw?.GetType().Name ?? "<null>", "int[]"));
+                                continue;
+                            }
+
+                            var expected = sample.ToArray();
+                            Array.Sort(expected);
+
+                            var matches = result.SequenceEqual(expected);
+                            var multisetOk = MultisetEquals(result, sample);
+                            var sorted = IsSorted(result);
+
+                            if (matches && multisetOk && sorted)
+                            {
+                                results.Add(Result.Pass(FormatArray(sample), FormatArray(result)));
+                            }
+                            else
+                            {
+                                var failureReason = !multisetOk ? "multiset mismatch" : !sorted ? "not sorted" : "order mismatch";
+                                results.Add(Result.Fail(FormatArray(sample), FormatArray(result), failureReason));
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            results.Add(Result.Error(FormatArray(sample), ex));
+                        }
                     }
 
-                    var expected = sample.ToArray();
-                    Array.Sort(expected);
-
-                    var matches = result.SequenceEqual(expected);
-                    var multisetOk = MultisetEquals(result, sample);
-                    var sorted = IsSorted(result);
-
-                    if (matches && multisetOk && sorted)
+                    var times = new Dictionary<int, double>();
+                    foreach (var size in SortBenchmarkSizes)
                     {
-                        return Result.Pass(FormatArray(sample), FormatArray(result));
+                        if (!benchmarkData.TryGetValue(size, out var source))
+                        {
+                            continue;
+                        }
+
+                        var warmup = new int[source.Length];
+                        Array.Copy(source, warmup, source.Length);
+                        _ = method.Invoke(null, new object?[] { warmup });
+
+                        var payload = new int[source.Length];
+                        Array.Copy(source, payload, source.Length);
+
+                        var sw = Stopwatch.StartNew();
+                        _ = method.Invoke(null, new object?[] { payload });
+                        sw.Stop();
+                        times[size] = sw.Elapsed.TotalMilliseconds;
                     }
 
-                    var failureReason = !multisetOk ? "multiset mismatch" : !sorted ? "not sorted" : "order mismatch";
-                    return Result.Fail(FormatArray(sample), FormatArray(result), failureReason);
+                    SortBenchmarkReports.Add(new SortBenchmarkReport(contestant, "C#", new Dictionary<int, double>(times), results.All(r => r.Kind == ResultKind.Pass)));
+                    summaries.Add(new TaskSummary(taskName, contestant, "C#", results.ToArray()));
                 }
-                catch (Exception ex)
-                {
-                    return Result.Error(FormatArray(sample), ex);
-                }
-            }).ToArray();
-        }));
+            }
 
-        summaries.AddRange(RunPerContestantJavaScript(taskName, RunTaskEJavaScript));
+            var folder = Path.Combine(ProjectRoot, "Tasks", taskName, contestant);
+            var modulePath = Path.Combine(folder, "task.js");
+            if (!File.Exists(modulePath))
+            {
+                continue;
+            }
+
+            var scriptBuilder = new StringBuilder();
+            scriptBuilder.AppendLine($"const modulePath = {JsonSerializer.Serialize(modulePath, JsonOptions)};");
+            scriptBuilder.AppendLine($"const tests = {JsonSerializer.Serialize(testCases, JsonOptions)};");
+            scriptBuilder.AppendLine("let mod;");
+            scriptBuilder.AppendLine("try {");
+            scriptBuilder.AppendLine("    mod = require(modulePath);");
+            scriptBuilder.AppendLine("} catch (error) {");
+            scriptBuilder.AppendLine("    console.log(JSON.stringify({ error: 'require', message: error.message }));");
+            scriptBuilder.AppendLine("    process.exit(0);");
+            scriptBuilder.AppendLine("}");
+            scriptBuilder.AppendLine("const customSort = mod.customSort;");
+            scriptBuilder.AppendLine("if (typeof customSort !== 'function') {");
+            scriptBuilder.AppendLine("    console.log(JSON.stringify({ error: 'missing', message: 'customSort not exported' }));");
+            scriptBuilder.AppendLine("    process.exit(0);");
+            scriptBuilder.AppendLine("}");
+            scriptBuilder.AppendLine("const results = tests.map((source) => {");
+            scriptBuilder.AppendLine("    try {");
+            scriptBuilder.AppendLine("        const original = Array.isArray(source) ? source.slice() : [];");
+            scriptBuilder.AppendLine("        const output = customSort(original.slice());");
+            scriptBuilder.AppendLine("        if (!Array.isArray(output)) {");
+            scriptBuilder.AppendLine("            return { kind: 'fail', input: JSON.stringify(source), actual: typeof output, expected: 'array' };");
+            scriptBuilder.AppendLine("        }");
+            scriptBuilder.AppendLine("        const expected = source.slice().sort((a, b) => a - b);");
+            scriptBuilder.AppendLine("        if (output.length !== expected.length) {");
+            scriptBuilder.AppendLine("            return { kind: 'fail', input: JSON.stringify(source), actual: JSON.stringify(output), expected: JSON.stringify(expected) };");
+            scriptBuilder.AppendLine("        }");
+            scriptBuilder.AppendLine("        for (let i = 0; i < output.length; i += 1) {");
+            scriptBuilder.AppendLine("            if (output[i] !== expected[i]) {");
+            scriptBuilder.AppendLine("                return { kind: 'fail', input: JSON.stringify(source), actual: JSON.stringify(output), expected: JSON.stringify(expected) };");
+            scriptBuilder.AppendLine("            }");
+            scriptBuilder.AppendLine("        }");
+            scriptBuilder.AppendLine("        return { kind: 'pass', input: JSON.stringify(source), message: JSON.stringify(output) };");
+            scriptBuilder.AppendLine("    } catch (error) {");
+            scriptBuilder.AppendLine("        return { kind: 'error', input: JSON.stringify(source), message: error.message };");
+            scriptBuilder.AppendLine("    }");
+            scriptBuilder.AppendLine("});");
+            scriptBuilder.AppendLine("console.log(JSON.stringify({ results }));");
+
+            var jsResults = RunJavaScriptHarness(folder, scriptBuilder.ToString());
+            var jsTimes = MeasureJavaScriptBenchmarks(folder, modulePath, benchmarksJson);
+            SortBenchmarkReports.Add(new SortBenchmarkReport(contestant, "JS", jsTimes, jsResults.All(r => r.Kind == ResultKind.Pass)));
+            summaries.Add(new TaskSummary(taskName, contestant, "JS", jsResults));
+        }
+
         return summaries;
     }
-    private static IReadOnlyList<TaskSummary> RunPerContestantCSharp(Assembly assembly, string taskName, Func<Type, Result[]> testRunner)
+
+    private static IReadOnlyList<TaskSummary> RunPerContestantCSharp(Assembly assembly, string taskName, Func<string, Type, Result[]> testRunner)
     {
         var summaries = new List<TaskSummary>();
         foreach (var contestant in GetContestants(taskName))
@@ -383,7 +689,7 @@ public static class AdminTestRunner
             }
             else
             {
-                results = testRunner(solverType);
+                results = testRunner(contestant, solverType);
             }
 
             summaries.Add(new TaskSummary(taskName, contestant, "C#", results));
@@ -475,6 +781,12 @@ console.log(JSON.stringify({{ results }}));
             new { nums = new[] { 5, 0, 5 }, k = 5, expected = 6 },
             new { nums = new[] { -1, 2, 9 }, k = 2, expected = 2 },
             new { nums = new[] { 7, 4, -5, -3, 1 }, k = 5, expected = 4 },
+            new { nums = new[] { 1, 2, 3 }, k = 3, expected = 3 },
+            new { nums = new[] { 5, 5, 5 }, k = 5, expected = 6 },
+            new { nums = new[] { 1, -1, 1, -1 }, k = 2, expected = 4 },
+            new { nums = new[] { 3, -1, 4, 2, -2 }, k = 3, expected = 7 },
+            new { nums = new[] { 0, 5, 0, 5 }, k = 5, expected = 10 },
+            new { nums = new[] { 10, -10, 10, -10 }, k = 10, expected = 10 },
         };
 
         var script = $@"const modulePath = {JsonSerializer.Serialize(modulePath, JsonOptions)};
@@ -505,56 +817,6 @@ const results = tests.map((t) => {{
         return {{ kind: 'fail', input: label, actual: String(value), expected: String(t.expected) }};
     }} catch (error) {{
         return {{ kind: 'error', input: label, message: error.message }};
-    }}
-}});
-console.log(JSON.stringify({{ results }}));
-";
-
-        return RunJavaScriptHarness(folder, script);
-    }
-    private static Result[]? RunTaskCJavaScript(string contestant, string folder)
-    {
-        var modulePath = Path.Combine(folder, "task.js");
-        if (!File.Exists(modulePath))
-        {
-            return null;
-        }
-
-        var tests = new[]
-        {
-            "ABEDSAGHASADBABABASDED",
-            "AAAAABBBBCCCCDDDD",
-            "The quick brown fox jumps over the lazy dog",
-        };
-
-        var script = $@"const modulePath = {JsonSerializer.Serialize(modulePath, JsonOptions)};
-let mod;
-try {{
-    mod = require(modulePath);
-}} catch (error) {{
-    console.log(JSON.stringify({{ error: 'require', message: error.message }}));
-    process.exit(0);
-}}
-const compress = mod.compress;
-const decompress = mod.decompress;
-if (typeof compress !== 'function' || typeof decompress !== 'function') {{
-    console.log(JSON.stringify({{ error: 'missing', message: 'compress/decompress not exported' }}));
-    process.exit(0);
-}}
-const tests = {JsonSerializer.Serialize(tests, JsonOptions)};
-const results = tests.map((sample) => {{
-    try {{
-        const encoded = compress(sample);
-        const decoded = decompress(encoded);
-        if (typeof encoded !== 'string') {{
-            return {{ kind: 'fail', input: sample, actual: typeof encoded, expected: 'string' }};
-        }}
-        if (decoded === sample) {{
-            return {{ kind: 'pass', input: sample, message: `len=${{encoded.length}}` }};
-        }}
-        return {{ kind: 'fail', input: sample, actual: decoded ?? '<null>', expected: sample }};
-    }} catch (error) {{
-        return {{ kind: 'error', input: sample, message: error.message }};
     }}
 }});
 console.log(JSON.stringify({{ results }}));
@@ -671,7 +933,7 @@ console.log(JSON.stringify({{ results }}));
 
         return RunJavaScriptHarness(folder, script);
     }
-    private static Result[] RunJavaScriptHarness(string workingDirectory, string scriptContents)
+    private static Result[] RunJavaScriptHarness(string workingDirectory, string scriptContents, Action<JsonElement>? inspect = null)
     {
         var tempFile = Path.Combine(Path.GetTempPath(), $"admin_js_{Guid.NewGuid():N}.js");
         try
@@ -718,6 +980,8 @@ console.log(JSON.stringify({{ results }}));
                 var message = root.TryGetProperty("message", out var msg) ? msg.GetString() : errorProperty.GetString();
                 return new[] { Result.Error("js", new InvalidOperationException(message ?? "Unknown JS error")) };
             }
+
+            inspect?.Invoke(root);
 
             if (!root.TryGetProperty("results", out var resultsElement))
             {
@@ -769,6 +1033,62 @@ console.log(JSON.stringify({{ results }}));
             }
         }
     }
+
+    private static Dictionary<int, double> MeasureJavaScriptBenchmarks(string workingDirectory, string modulePath, string benchmarksJson)
+    {
+        var times = new Dictionary<int, double>();
+        if (!File.Exists(modulePath))
+        {
+            return times;
+        }
+
+        var script = new StringBuilder();
+        script.AppendLine($"const modulePath = {JsonSerializer.Serialize(modulePath, JsonOptions)};");
+        script.AppendLine($"const benchmarks = {benchmarksJson};");
+        script.AppendLine("const { performance } = require('perf_hooks');");
+        script.AppendLine("let mod;");
+        script.AppendLine("try {");
+        script.AppendLine("    mod = require(modulePath);");
+        script.AppendLine("} catch (error) {");
+        script.AppendLine("    console.log(JSON.stringify({ error: 'require', message: error.message }));");
+        script.AppendLine("    process.exit(0);");
+        script.AppendLine("}");
+        script.AppendLine("const customSort = mod.customSort;");
+        script.AppendLine("if (typeof customSort !== 'function') {");
+        script.AppendLine("    console.log(JSON.stringify({ error: 'missing', message: 'customSort not exported' }));");
+        script.AppendLine("    process.exit(0);");
+        script.AppendLine("}");
+        script.AppendLine("const results = [];");
+        script.AppendLine("const benchmarkResults = {};");
+        script.AppendLine("for (const key of Object.keys(benchmarks)) {");
+        script.AppendLine("    const size = Number(key);");
+        script.AppendLine("    const data = benchmarks[key].slice();");
+        script.AppendLine("    customSort(data.slice());");
+        script.AppendLine("    const start = performance.now();");
+        script.AppendLine("    customSort(data.slice());");
+        script.AppendLine("    const elapsed = performance.now() - start;");
+        script.AppendLine("    benchmarkResults[size] = elapsed;");
+        script.AppendLine("}");
+        script.AppendLine("console.log(JSON.stringify({ results, benchmarks: benchmarkResults }));");
+
+        RunJavaScriptHarness(workingDirectory, script.ToString(), root =>
+        {
+            if (root.TryGetProperty("benchmarks", out var benchmarksElement) && benchmarksElement.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var property in benchmarksElement.EnumerateObject())
+                {
+                    if (int.TryParse(property.Name, out var size) && property.Value.ValueKind == JsonValueKind.Number)
+                    {
+                        times[size] = property.Value.GetDouble();
+                    }
+                }
+            }
+        });
+
+        return times;
+    }
+
+
     private static IReadOnlyList<string> GetContestants(string taskName)
     {
         var taskFolder = Path.Combine(ProjectRoot, "Tasks", taskName);
@@ -1026,22 +1346,26 @@ console.log(JSON.stringify({{ results }}));
 
             public int CompareTo(LanguageSnapshot other)
             {
-                var taskComparison = TaskRatio.CompareTo(other.TaskRatio);
-                if (taskComparison != 0)
-                {
-                    return taskComparison;
-                }
-
                 var testComparison = TestRatio.CompareTo(other.TestRatio);
                 if (testComparison != 0)
                 {
                     return testComparison;
                 }
 
+                var taskComparison = TaskRatio.CompareTo(other.TaskRatio);
+                if (taskComparison != 0)
+                {
+                    return taskComparison;
+                }
+
                 return string.Compare(other.Language, Language, StringComparison.OrdinalIgnoreCase);
             }
         }
     }
+
+    private readonly record struct CompressionReport(string Contestant, string Language, double CompressionPercent, bool Lossless);
+
+    private sealed record SortBenchmarkReport(string Contestant, string Language, IReadOnlyDictionary<int, double> TimesMs, bool IsSorted);
 
     private readonly record struct Result(ResultKind Kind, string Input, string Message)
     {
