@@ -8,7 +8,6 @@ function runSmokeTests() {
     { input: "aabb", expected: -1 },
   ];
 
-  console.log(`[Valdas] running smoke tests`);
   for (const { input, expected } of cases) {
     try {
       const result = firstUniqChar(input);

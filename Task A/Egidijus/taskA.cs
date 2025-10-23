@@ -4,10 +4,10 @@ namespace Contestants.Egidijus;
 
 public static class Solver
 {
-    public static int FirstUniqChar(string s)
+    public static int? FirstUniqChar(string s)
     {
         // your code goes here
-        throw new NotImplementedException();
+        return null;
     }
 
     public static void RunSmokeTests()
@@ -18,12 +18,11 @@ public static class Solver
             ("aabb", -1),
         };
 
-        Console.WriteLine("[Egidijus] running smoke tests");
         foreach (var (input, expected) in cases)
         {
             try
             {
-                int result = FirstUniqChar(input);
+                int? result = FirstUniqChar(input);
                 Console.WriteLine($"{Format(input)} -> {result} (expected {expected})");
             }
             catch (Exception ex)
