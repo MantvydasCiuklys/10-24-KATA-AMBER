@@ -1,3 +1,5 @@
+using Admin;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -17,7 +19,21 @@ if (string.IsNullOrWhiteSpace(contestantName))
     return;
 }
 contestantName = contestantName.Trim();
+if (string.Equals(contestantName, "Admin", StringComparison.OrdinalIgnoreCase))
+{
+    var adminTaskRaw = GetMetadata("ContestantTask");
+    IReadOnlyCollection<string>? adminTasks = null;
+    if (!string.IsNullOrWhiteSpace(adminTaskRaw))
+    {
+        var trimmedTask = adminTaskRaw.Trim();
+        adminTasks = trimmedTask.Equals("all", StringComparison.OrdinalIgnoreCase)
+            ? new[] { "all" }
+            : new[] { trimmedTask };
+    }
 
+    AdminTestRunner.Run(assembly, adminTasks);
+    return;
+}
 var taskName = NormalizeTaskName(GetMetadata("ContestantTask"));
 var runTimeRaw = GetMetadata("ContestantRunTime");
 var runTime = NormalizeRunTime(runTimeRaw);
