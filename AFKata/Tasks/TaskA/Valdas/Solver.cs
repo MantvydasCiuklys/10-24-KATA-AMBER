@@ -1,6 +1,6 @@
 using System;
 
-namespace Contestants.Tadas;
+namespace Contestants.Valdas.TaskA;
 
 public static class Solver
 {

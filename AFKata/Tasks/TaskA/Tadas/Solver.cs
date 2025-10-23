@@ -1,12 +1,12 @@
 using System;
 
-namespace Contestants.Jonas;
+namespace Contestants.Tadas.TaskA;
 
 public static class Solver
 {
     public static int? FirstUniqChar(string s)
     {
-          // your code goes here
+        // your code goes here
         return null;
     }
 

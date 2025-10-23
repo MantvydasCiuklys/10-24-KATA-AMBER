@@ -1,6 +1,6 @@
 using System;
 
-namespace Contestants.Modestas;
+namespace Contestants.Modestas.TaskA;
 
 public static class Solver
 {

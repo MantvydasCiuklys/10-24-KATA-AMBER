@@ -1,6 +1,6 @@
 using System;
 
-namespace Contestants.Valdas;
+namespace Contestants.Egidijus.TaskA;
 
 public static class Solver
 {
