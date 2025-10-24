@@ -13,6 +13,16 @@ public static class Solver
             throw new ArgumentNullException(nameof(payload));
         }
 
+        Dictionary<char, string> compressed = new Dictionary<char, string>();
+        for (int i = 0; i < payload.Length; i++)
+        {
+            var c = payload[i];
+            if (compressed.ContainsKey(c))
+                compressed[c] = compressed[c] + 1;
+            byte a = Convert.ToByte(c);
+            Console.WriteLine(a);
+        }
+
         // baseline implementation just returns the input; contestants should do better
         return payload;
     }
@@ -30,13 +40,7 @@ public static class Solver
 
     public static void RunSmokeTests()
     {
-        var cases = new[]
-        {
-            string.Empty,
-            "AAAAABBBBCCCCDDDD",
-            "XYZXYZXYZXYZ",
-            Sample,
-        };
+        var cases = new[] { string.Empty, "AAAAABBBBCCCCDDDD", "XYZXYZXYZXYZ", Sample };
 
         foreach (var payload in cases)
         {
@@ -44,7 +48,9 @@ public static class Solver
             {
                 var compressed = Compress(payload);
                 var roundtrip = Decompress(compressed);
-                Console.WriteLine($"{Format(payload)} -> compressed {Format(compressed)} -> roundtrip {Format(roundtrip)}");
+                Console.WriteLine(
+                    $"{Format(payload)} -> compressed {Format(compressed)} -> roundtrip {Format(roundtrip)}"
+                );
             }
             catch (Exception ex)
             {
