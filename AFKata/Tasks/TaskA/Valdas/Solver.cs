@@ -7,6 +7,7 @@ public static class Solver
     public static int? FirstUniqChar(string s)
     {
         // your code goes here
+
         return null;
     }
 
