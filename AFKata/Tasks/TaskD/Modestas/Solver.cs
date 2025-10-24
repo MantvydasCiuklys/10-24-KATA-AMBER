@@ -6,7 +6,7 @@ public static class Solver
 {
     private const string SampleMessage = "Meet me at the old bridge at midnight.";
 
-        public static int cipher = 4;
+    public static long cipher = DateTime.Today.DayOfYear;
     public static string Cipher(string plaintext)
     {
         if (plaintext is null)
@@ -17,7 +17,7 @@ public static class Solver
         string cypheredText = "";
         for (int i = 0; i < plaintext.Length; i++)
         {
-            cypheredText += Convert.ToChar(Convert.ToByte(plaintext[i]) + (cipher * cipher));
+            cypheredText += Convert.ToChar((short)Convert.ToInt64(plaintext[i]) + ((cipher)));
         }
 
         return cypheredText;
@@ -33,10 +33,9 @@ public static class Solver
         string plainText = "";
         for (int i = 0; i < secretText.Length; i++)
         {
-            plainText += Convert.ToChar(Convert.ToByte(secretText[i]) - (cipher * cipher));
+            plainText += Convert.ToChar((short)Convert.ToInt64(secretText[i]) - (cipher));
         }
 
-        // TODO: replace with your custom cipher implementation
         return plainText;
     }
 
@@ -46,5 +45,6 @@ public static class Solver
         var plain = Decipher(encoded);
         Console.WriteLine($"Sample input: {SampleMessage}");
         Console.WriteLine($"Your cipher output: {encoded}");
+        Console.WriteLine($"Your deciphered output: {plain}");
     }
 }
