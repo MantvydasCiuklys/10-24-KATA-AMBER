@@ -43,8 +43,7 @@ public enum SymbolCode : byte
 
 public static class Solver
 {
-    private const string Sample = "AAABEDSAGHASADBABABASDED";
-
+    private const string Sample = "2AAABEDS2AGHASAAD2BABABASDED";
 
     public static string Compress(string payload)
     {
@@ -58,7 +57,7 @@ public static class Solver
         int count = 1;
         for (int i = 0; i < payload.Length; i++)
         {
-            if (i + 1 < payload.Length && payload[i] == payload[i + 1])
+            if (i + 1 < payload.Length && payload[i] == payload[i + 1] && count < 9)
             {
                 count++;
             }
@@ -96,7 +95,7 @@ public static class Solver
         var cases = new[]
         {
             string.Empty,
-            "AAAAABBBBCCCCDDDD",
+            "AAAAAAAAAAAAABBBBCCCCDDDD",
             "XYZXYZXYZXYZ",
             Sample,
         };
