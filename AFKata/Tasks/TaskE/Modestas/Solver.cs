@@ -13,8 +13,20 @@ public static class Solver
             throw new ArgumentNullException(nameof(values));
         }
 
-        // TODO: replace with your custom sorting algorithm (no Array.Sort!)
-        return values.ToArray(); // return copy to avoid mutating caller
+        for (int i = 0; i < values.Length - 1; i++)
+        {
+            for (int j = 0; j < values.Length - i - 1; j++)
+            {
+                if (values[j] > values[j + 1])
+                {
+                    int placeholder = values[j];
+                    values[j] = values[j + 1];
+                    values[j + 1] = placeholder;
+                }
+            }
+        }
+
+        return values.ToArray();
     }
 
     public static void RunSmokeTests() => TaskESmokeTestHarness.Run(CustomSort);
