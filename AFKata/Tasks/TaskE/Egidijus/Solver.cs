@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using System.Linq;
+using Tasks.TaskE;
 
 namespace Contestants.Egidijus.TaskE;
 
@@ -16,21 +17,7 @@ public static class Solver
         return values.ToArray(); // return copy to avoid mutating caller
     }
 
-    public static void ShowCase()
-    {
-        var samples = new[]
-        {
-            Array.Empty<int>(),
-            new[] { 4 },
-            new[] { 3, 1, 4, 1, 5, 9, 2, 6 },
-            new[] { 12, -4, 7, 7, -4, 0, 3, 12, 3 },
-            new[] { 5, 5, 5, 5, 5 },
-        };
+    public static void RunSmokeTests() => TaskESmokeTestHarness.Run(CustomSort);
 
-        foreach (var sample in samples)
-        {
-            var sorted = CustomSort(sample);
-            Console.WriteLine($"[{string.Join(", ", sample)}] -> [{string.Join(", ", sorted)}]");
-        }
-    }
+    public static void ShowCase() => RunSmokeTests();
 }

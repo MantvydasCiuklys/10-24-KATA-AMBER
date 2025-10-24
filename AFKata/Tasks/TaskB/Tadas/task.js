@@ -1,30 +1,29 @@
-﻿function countDivisibleSubarrays(nums, k) {
-  // your code goes here
-  return -1;
-}
+const { runTaskBSmokeTests } = require("../taskSmokeTests");
 
-function formatCase(nums, k) {
-  const values = Array.isArray(nums) ? `[${nums.join(', ')}]` : 'null';
-  return `nums = ${values}, k = ${k}`;
+function countDivisibleSubarrays(nums, k) {
+  if (nums.length === 0) return 0;
+
+  if (nums.length === 1) {
+    return nums[0] % k === 0 ? 1 : 0;
+  }
+
+  let count = 0;
+  for (let i = 0; i < nums.length; i++) {
+    let sum = 0;
+
+    for (let j = i; j < nums.length; j++) {
+      let sumBy2 = nums[i] + nums[j];
+      if (sumBy2 % k === 0) {
+        count++;
+      }
+    }
+  }
+
+  return count;
 }
 
 function runSmokeTests() {
-  const cases = [
-    { nums: [4, 5, 0, -2, -3, 1], k: 5, expected: 7 },
-    { nums: [5], k: 9, expected: 0 },
-    { nums: [5, 10, 15], k: 5, expected: 6 },
-    { nums: [1, 2, 3, 4, 5], k: 3, expected: 7 },
-  ];
-
-  for (const { nums, k, expected } of cases) {
-    try {
-      const result = countDivisibleSubarrays(nums, k);
-      console.log(`${formatCase(nums, k)} -> ${result} (expected ${expected})`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.log(`${formatCase(nums, k)} -> threw ${message}`);
-    }
-  }
+  runTaskBSmokeTests(countDivisibleSubarrays);
 }
 
 module.exports = {

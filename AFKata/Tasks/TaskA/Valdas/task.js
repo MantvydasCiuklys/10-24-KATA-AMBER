@@ -1,22 +1,17 @@
+const { runTaskASmokeTests } = require("../taskSmokeTests");
+
 function firstUniqChar(s) {
+  for (let i = 0; i < s.length; i++) {
+    if (s.indexOf(s[i]) === i) {
+      return i;
+    }
+  }
+  return 0;
   // your code goes here
 }
 
 function runSmokeTests() {
-  const cases = [
-    { input: "leetcode", expected: 0 },
-    { input: "aabb", expected: -1 },
-  ];
-
-  for (const { input, expected } of cases) {
-    try {
-      const result = firstUniqChar(input);
-      console.log(`${JSON.stringify(input)} -> ${result} (expected ${expected})`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.log(`${JSON.stringify(input)} -> threw ${message}`);
-    }
-  }
+  runTaskASmokeTests(firstUniqChar);
 }
 
 module.exports = {

@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using System.Linq;
+using Tasks.TaskE;
 
 namespace Contestants.Modestas.TaskE;
 
@@ -12,25 +13,23 @@ public static class Solver
             throw new ArgumentNullException(nameof(values));
         }
 
-        // TODO: replace with your custom sorting algorithm (no Array.Sort!)
-        return values.ToArray(); // return copy to avoid mutating caller
-    }
-
-    public static void ShowCase()
-    {
-        var samples = new[]
+        for (int i = 0; i < values.Length - 1; i++)
         {
-            Array.Empty<int>(),
-            new[] { 4 },
-            new[] { 3, 1, 4, 1, 5, 9, 2, 6 },
-            new[] { 12, -4, 7, 7, -4, 0, 3, 12, 3 },
-            new[] { 5, 5, 5, 5, 5 },
-        };
-
-        foreach (var sample in samples)
-        {
-            var sorted = CustomSort(sample);
-            Console.WriteLine($"[{string.Join(", ", sample)}] -> [{string.Join(", ", sorted)}]");
+            for (int j = 0; j < values.Length - i - 1; j++)
+            {
+                if (values[j] > values[j + 1])
+                {
+                    int placeholder = values[j];
+                    values[j] = values[j + 1];
+                    values[j + 1] = placeholder;
+                }
+            }
         }
+
+        return values.ToArray();
     }
+
+    public static void RunSmokeTests() => TaskESmokeTestHarness.Run(CustomSort);
+
+    public static void ShowCase() => RunSmokeTests();
 }

@@ -1,4 +1,4 @@
-using System;
+using Tasks.TaskA;
 
 namespace Contestants.Arnas.TaskA;
 
@@ -6,31 +6,33 @@ public static class Solver
 {
     public static int? FirstUniqChar(string s)
     {
-        // your code goes here
-        return null;
-    }
-
-    public static void RunSmokeTests()
-    {
-        var cases = new (string input, int expected)[]
+        if (s.Length == 0) return -1;
+        var dict = new Dictionary<char, Option>();
+        for (int i = 0; i < s.Length; i++)
         {
-            ("leetcode", 0),
-            ("aabb", -1),
-        };
-
-        foreach (var (input, expected) in cases)
-        {
-            try
+            var value = dict.GetValueOrDefault(s[i]);
+            if (value is null)
             {
-                int? result = FirstUniqChar(input);
-                Console.WriteLine($"{Format(input)} -> {result} (expected {expected})");
+                dict.Add(s[i], new Option { Index = i, Count = 1 });
             }
-            catch (Exception ex)
+            else
             {
-                Console.WriteLine($"{Format(input)} -> threw {ex.GetType().Name}: {ex.Message}");
+                value.Count++;
             }
         }
+        foreach (var val in dict.Where(val => val.Value.Count == 1))
+        {
+            return val.Value.Index;
+        }
+
+        return -1;
     }
 
-    private static string Format(string value) => value is null ? "null" : $"\"{value}\"";
+    public class Option
+    {
+        public int Index { get; set; }
+        public int Count { get; set; }
+    }
+
+    public static void RunSmokeTests() => TaskASmokeTestHarness.Run(FirstUniqChar);
 }

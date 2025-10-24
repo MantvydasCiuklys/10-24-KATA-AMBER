@@ -1,22 +1,32 @@
+const { runTaskASmokeTests } = require("../taskSmokeTests");
+
 function firstUniqChar(s) {
   // your code goes here
+  if (s.length === 1) return 0;
+
+  let foundedChards = [];
+  for (let i = 0; i < s.length; i++) {
+    let foundDublicate = false;
+    let unique = s[i];
+
+    for (let j = i + 1; j < s.length; j++) {
+      if (s[j] == unique) {
+        foundDublicate = true;
+      }
+    }
+
+    if (!foundDublicate && foundedChards.indexOf(unique) === -1) {
+      return i;
+    }
+
+    foundedChards.push(unique);
+  }
+
+  return -1;
 }
 
 function runSmokeTests() {
-  const cases = [
-    { input: "leetcode", expected: 0 },
-    { input: "aabb", expected: -1 },
-  ];
-  
-  for (const { input, expected } of cases) {
-    try {
-      const result = firstUniqChar(input);
-      console.log(`${JSON.stringify(input)} -> ${result} (expected ${expected})`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.log(`${JSON.stringify(input)} -> threw ${message}`);
-    }
-  }
+  runTaskASmokeTests(firstUniqChar);
 }
 
 module.exports = {

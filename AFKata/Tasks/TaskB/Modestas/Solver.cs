@@ -1,5 +1,4 @@
-﻿using System;
-using System.Linq;
+using Tasks.TaskB;
 
 namespace Contestants.Modestas.TaskB;
 
@@ -7,37 +6,22 @@ public static class Solver
 {
     public static long CountDivisibleSubarrays(int[] nums, int k)
     {
-        // your code goes here
-        return -1;
-    }
-
-    public static void RunSmokeTests()
-    {
-        var cases = new (int[] nums, int k, long expected)[]
+        var count = 0;
+        for (int i = 0; i < nums.Length; i++)
         {
-            (new[] { 4, 5, 0, -2, -3, 1 }, 5, 7),
-            (new[] { 5 }, 9, 0),
-            (new[] { 5, 10, 15 }, 5, 6),
-            (new[] { 1, 2, 3, 4, 5 }, 3, 7),
-        };
-
-        foreach (var (nums, k, expected) in cases)
-        {
-            try
+            int sumFirst = 0;
+            for (int j = i; j < nums.Length; j++)
             {
-                var result = CountDivisibleSubarrays(nums, k);
-                Console.WriteLine($"{Format(nums, k)} -> {result} (expected {expected})");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"{Format(nums, k)} -> threw {ex.GetType().Name}: {ex.Message}");
+                sumFirst += nums[j];
+                int sum = nums[i] + nums[j];
+                if (sum % k == 0 || sumFirst % k == 0)
+                {
+                    count++;
+                }
             }
         }
+        return count;
     }
 
-    private static string Format(int[] nums, int k)
-    {
-        var values = nums is null ? "null" : "[" + string.Join(", ", nums) + "]";
-        return $"nums = {values}, k = {k}";
-    }
+    public static void RunSmokeTests() => TaskBSmokeTestHarness.Run(CountDivisibleSubarrays);
 }
