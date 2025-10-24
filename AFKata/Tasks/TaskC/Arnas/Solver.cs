@@ -14,7 +14,7 @@ public static class Solver
             throw new ArgumentNullException(nameof(payload));
         }
 
-        var stream = new MemoryStream();
+        using var stream = new MemoryStream();
         Tuple<(byte, short)?, (byte, short)?> current = new(null, null);
         for (int i = 0; i < payload.Length; i++)
         {
@@ -58,6 +58,9 @@ public static class Solver
                 stream.WriteByte(fifthByte);
             }
         }
+        using var fileStream = File.OpenWrite("test.txt");
+        stream.CopyToAsync(fileStream);
+        fileStream.Flush();
 
         // baseline implementation just returns the input; contestants should do better
         return payload;
