@@ -69,7 +69,7 @@ public static class Solver
             }
         }
 
-        return compressed;
+        return compressed.Length < payload.Length ? compressed : "%" + payload;
     }
 
     public static string Decompress(string encoded)
@@ -77,6 +77,11 @@ public static class Solver
         if (encoded is null)
         {
             throw new ArgumentNullException(nameof(encoded));
+        }
+
+        if (encoded.StartsWith("%"))
+        {
+            return encoded[1..];
         }
 
         for (int i = 0; i < encoded.Length; i += 2)
