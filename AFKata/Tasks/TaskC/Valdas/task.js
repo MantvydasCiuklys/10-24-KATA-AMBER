@@ -2,9 +2,35 @@
   if (payload == null) {
     throw new TypeError("payload must not be null or undefined");
   }
-
   // Baseline implementation performs no compression
-  return payload;
+
+  
+  let compressed = "";
+  let X = [[],[]];
+  let count = 1;
+
+  for (let i = 0; i < payload.length; i++) {
+    //console.log(payload[i]);
+    //compressed += payload[i];
+    if(payload[i]!==payload[i+1]){
+      
+      compressed+=payload[i];
+      //if(count>1){
+        compressed+=count;
+    //}
+      //compressed+=",";
+      count=1;
+      //i++;
+    }
+    else{ 
+      count++;
+      //compressed+=payload[i];
+      }
+
+  }
+
+  console.log("compressed",compressed);
+  return compressed;
 }
 
 function decompress(encoded) {
@@ -12,8 +38,16 @@ function decompress(encoded) {
     throw new TypeError("encoded must not be null or undefined");
   }
 
+  let decompressed = "";
+  for (let i = 0; i < encoded.length; i++) {
+    for (let j = 0; j < encoded[i+1]; j++) {
+      decompressed+=encoded[i];
+    }
+
+    
+  }
   // Baseline implementation assumes identity encoding
-  return encoded;
+  return decompressed;
 }
 
 function runSmokeTests() {
@@ -22,6 +56,7 @@ function runSmokeTests() {
     "AAAAABBBBCCCCDDDD",
     "XYZXYZXYZXYZ",
     "ABEDSAGHASADBABABASDED",
+    "1233334455AABBCDE"
   ];
 
   for (const payload of cases) {
