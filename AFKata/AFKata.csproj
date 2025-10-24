@@ -6,9 +6,9 @@
     <RootNamespace>_</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <ContestantName>Arnas</ContestantName>
+    <ContestantName>Jonas</ContestantName>
     <ContestantRunTime>c#</ContestantRunTime>
-    <ContestantTask>TaskA</ContestantTask>
+    <ContestantTask>TaskB</ContestantTask>
   </PropertyGroup>
 
   <ItemGroup>
