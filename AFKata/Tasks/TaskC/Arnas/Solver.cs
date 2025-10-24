@@ -51,7 +51,11 @@ public static class Solver
                 var fourthByteAppendix = Convert.ToByte(current.Item2.Value.Item2 >> 8);
                 var fourthByte = (byte)(fourthBytePrefix | fourthByteAppendix);
                 var fifthByte = Convert.ToByte(current.Item2.Value.Item2 & 0xFF);
-                
+                stream.WriteByte(firstByte);
+                stream.WriteByte(secondByte);
+                stream.WriteByte(thirdByte);
+                stream.WriteByte(fourthByte);
+                stream.WriteByte(fifthByte);
             }
         }
 
