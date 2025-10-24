@@ -7,8 +7,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <ContestantName>Jonas</ContestantName>
-    <ContestantRunTime>js</ContestantRunTime>
-    <ContestantTask>TaskD</ContestantTask>
+    <ContestantRunTime>c#</ContestantRunTime>
+    <ContestantTask>TaskA</ContestantTask>
   </PropertyGroup>
 
   <ItemGroup>
