@@ -42,7 +42,7 @@ public static class Solver
             {
                 var firstBytePrefix = Convert.ToByte(current.Item1.Value.Item1 << 2);
                 var firstByteAppendix = Convert.ToByte(current.Item1.Value.Item2 >> 12);
-                var firstByte = (byte)(firstByteAppendix | firstByteAppendix);
+                var firstByte = (byte)(firstBytePrefix | firstByteAppendix);
                 var secondByte = Convert.ToByte(current.Item1.Value.Item2 << 4 >> 8);
                 var thirdBytePrefix = Convert.ToByte(current.Item1.Value.Item2 & 0x07);
                 var thirdByteAppendix = Convert.ToByte(current.Item2.Value.Item1 >> 2 << 4);
