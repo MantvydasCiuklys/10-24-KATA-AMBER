@@ -6,7 +6,7 @@ public static class Solver
 {
     public static long CountDivisibleSubarrays(int[] nums, int k)
     {
-        var sums = new List<long>();
+        var count = 0;
         var n = nums.Length;
         for (var start = 0; start < n; start++)
         {
@@ -14,11 +14,14 @@ public static class Solver
             for (var end = start; end < n; end++)
             {
                 sum += nums[end];
-                sums.Add(sum);
+                if (sum % k == 0)
+                {
+                    count++;
+                }
             }
         }
-        
-        return sums.Count(sum => sum % k == 0);
+
+        return count;
         // your code goes here
     }
 
