@@ -7,6 +7,30 @@ public static class Solver
     private const string SampleMessage = "Meet me at the old bridge at midnight.";
 
     private readonly static long Key = new Random().NextInt64();
+    
+    static byte RightRotate(byte n, byte d) {
+
+        // Rotation of 32 is same as rotation of 0
+        d = (byte)(d % 8);
+
+        var a = (byte)(n >> d);
+        var b = (byte)(n << 8 - d);
+
+        // Moving bits right and wrapping around
+        return (byte)(a | b);
+    }
+    
+    static int LeftRotate(byte n, byte d) {
+
+        // Rotation of 32 is same as rotation of 0
+        d = (byte)(d % 8);
+        
+        var a = (byte)(n <<  d);
+        var b = (byte)(n >> 8 - d);
+
+        // Moving bits left and wrapping around
+        return (byte)(a | b);
+    }
 
     public static string Cipher(string plaintext)
     {
@@ -28,7 +52,7 @@ public static class Solver
             currByte = (byte)(currByte ^ (byte)(Key << 48 >> 56));
             currByte = (byte)(currByte ^ (byte)(Key << 56 >> 56));
             
-            bytes.Add(currByte);
+            bytes.Add(RightRotate(currByte, 5));
         }
         
         var result = Convert.ToBase64String(bytes.ToArray());
@@ -46,7 +70,7 @@ public static class Solver
         var builder = new StringBuilder();
         foreach (var c in bytes)
         {
-            var currByte = c;
+            var currByte = LeftRotate(c, 5);
             currByte = (byte)(currByte ^ (byte)(Key << 56 >> 56));
             currByte = (byte)(currByte ^ (byte)(Key << 48 >> 56));
             currByte = (byte)(currByte ^ (byte)(Key << 40 >> 56));
