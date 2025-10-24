@@ -8,12 +8,12 @@ public static class Solver
     {
         if (s.Length == 0) return -1;
         var dict = new Dictionary<char, Option>();
-        foreach (var c in s)
+        for (int i = 0; i < s.Length; i++)
         {
-            var value = dict.GetValueOrDefault(c);
+            var value = dict.GetValueOrDefault(s[i]);
             if (value is null)
             {
-                dict.Add(c, new Option { Index = dict.Count, Count = 1 });
+                dict.Add(s[i], new Option { Index = i, Count = 1 });
             }
             else
             {
